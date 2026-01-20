@@ -1,0 +1,6 @@
+com/thurman/consumer/ProcessedEventService.class
+com/thurman/consumer/OutboxEventConsumer.class
+com/thurman/consumer/ProcessedEventEntity.class
+com/thurman/consumer/OutboxConsumerServiceApplication.class
+com/thurman/consumer/OutboxEventMessage.class
+com/thurman/consumer/ProcessedEventRepository.class
