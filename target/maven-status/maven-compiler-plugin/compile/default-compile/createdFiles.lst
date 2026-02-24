@@ -4,3 +4,4 @@ com/thurman/consumer/ProcessedEventEntity.class
 com/thurman/consumer/OutboxConsumerServiceApplication.class
 com/thurman/consumer/OutboxEventMessage.class
 com/thurman/consumer/ProcessedEventRepository.class
+com/thurman/outboxconsumer/KafkaOutboxConsumer.class
