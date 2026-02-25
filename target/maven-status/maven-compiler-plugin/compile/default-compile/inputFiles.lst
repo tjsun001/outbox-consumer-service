@@ -1,7 +1,0 @@
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/OutboxEventConsumer.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/ProcessedEventService.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/KafkaOutboxConsumer.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/OutboxConsumerServiceApplication.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/OutboxEventMessage.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/ProcessedEventEntity.java
-/Users/thurmansanders/AmigosCode/outbox-consumer-service/src/main/java/com/thurman/consumer/ProcessedEventRepository.java
