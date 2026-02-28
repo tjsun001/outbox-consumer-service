@@ -19,13 +19,22 @@
 
     <properties>
         <java.version>17</java.version>
+
         <aws.msk.iam.auth.version>2.3.5</aws.msk.iam.auth.version>
+
         <docker.image.tag>dev</docker.image.tag>
         <ecr.image.uri>080967118593.dkr.ecr.us-east-1.amazonaws.com/outbox-consumer-service</ecr.image.uri>
+
+        <jib-maven-plugin.version>3.3.2</jib-maven-plugin.version>
+        <maven-enforcer-plugin.version>3.4.1</maven-enforcer-plugin.version>
+
+        <!-- build stamp: set GIT_COMMIT in your shell/CI; otherwise it will be "local" -->
+        <build.revision>${env.GIT_COMMIT}</build.revision>
+        <env.GIT_COMMIT>local</env.GIT_COMMIT>
+        <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ssXXX</maven.build.timestamp.format>
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
@@ -40,6 +49,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
 
         <dependency>
@@ -59,16 +73,28 @@
             <artifactId>spring-kafka-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-json</artifactId>
-        </dependency>
-
-
     </dependencies>
 
     <build>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
         <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                    <useDefaultDelimiters>true</useDefaultDelimiters>
+                </configuration>
+            </plugin>
 
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -84,13 +110,56 @@
             </plugin>
 
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>ban-jpa-and-db</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:spring-boot-starter-data-jpa</exclude>
+                                        <exclude>org.springframework.boot:spring-boot-starter-jdbc</exclude>
+                                        <exclude>org.springframework.data:spring-data-jpa</exclude>
+
+                                        <exclude>org.hibernate.orm:hibernate-core</exclude>
+                                        <exclude>org.hibernate:hibernate-core</exclude>
+
+                                        <exclude>jakarta.persistence:jakarta.persistence-api</exclude>
+                                        <exclude>javax.persistence:javax.persistence-api</exclude>
+
+                                        <exclude>org.postgresql:postgresql</exclude>
+                                        <exclude>mysql:mysql-connector-java</exclude>
+                                        <exclude>com.mysql:mysql-connector-j</exclude>
+                                        <exclude>org.mariadb.jdbc:mariadb-java-client</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <version>3.3.2</version>
+                <version>${jib-maven-plugin.version}</version>
                 <configuration>
 
                     <container>
                         <mainClass>com.thurman.consumer.OutboxConsumerServiceApplication</mainClass>
+                        <labels>
+                            <org.opencontainers.image.source>${project.groupId}:${project.artifactId}</org.opencontainers.image.source>
+                            <org.opencontainers.image.revision>${build.revision}</org.opencontainers.image.revision>
+                            <org.opencontainers.image.created>${maven.build.timestamp}</org.opencontainers.image.created>
+                        </labels>
                     </container>
 
                     <from>
@@ -115,5 +184,20 @@
 
         </plugins>
     </build>
+
+<!--    <profiles>-->
+<!--        <profile>-->
+<!--            <id>default-build-revision</id>-->
+<!--            <activation>-->
+<!--                <property>-->
+<!--                    <name>!env.GIT_COMMIT</name>-->
+<!--                </property>-->
+<!--            </activation>-->
+<!--            <properties>-->
+<!--&lt;!&ndash;                <build.revision>local</build.revision>&ndash;&gt;-->
+<!--                <build.revision>${env.GIT_COMMIT}</build.revision>-->
+<!--            </properties>-->
+<!--        </profile>-->
+<!--    </profiles>-->
 
 </project>
