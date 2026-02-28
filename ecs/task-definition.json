@@ -1,0 +1,27 @@
+{
+  "family": "outbox-consumer-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::080967118593:role/ecs-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::080967118593:role/ecs-outbox-consumer-task-role",
+  "containerDefinitions": [
+    {
+      "name": "outbox-consumer-service",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-region": "us-east-1",
+          "awslogs-group": "/ecs/outbox-consumer-service",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "aws" }
+      ]
+    }
+  ]
+}w

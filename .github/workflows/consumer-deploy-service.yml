@@ -1,0 +1,115 @@
+name: Consumer Deploy (ECS Service)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Existing image tag to deploy (sha-<12> from build workflow)
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: outbox-consumer-deploy
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+
+  # ECR
+  ECR_REPO: outbox-consumer-service
+  CONTAINER_NAME: outbox-consumer-service
+
+  # ECS
+  ECS_CLUSTER: mlops-poc-dev-ecs-cluster
+  ECS_SERVICE: outbox-consumer-service
+  TASKDEF_TEMPLATE: ecs/task-definition.json
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate image_tag (strict)
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.image_tag }}"
+          if ! echo "$TAG" | grep -Eq '^sha-[0-9a-f]{12}$'; then
+            echo "ERROR: image_tag must match: sha-<12 lowercase hex chars>"
+            exit 1
+          fi
+
+      - name: Ensure task definition template exists
+        run: |
+          test -f "${{ env.TASKDEF_TEMPLATE }}" || { echo "Missing ${{ env.TASKDEF_TEMPLATE }}"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve digest and render taskdef (pinned)
+        run: |
+          set -euo pipefail
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          TAG="${{ inputs.image_tag }}"
+
+          DIGEST="$(aws ecr describe-images \
+            --region "${{ env.AWS_REGION }}" \
+            --repository-name "${{ env.ECR_REPO }}" \
+            --image-ids imageTag="$TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          if [ -z "$DIGEST" ] || [ "$DIGEST" = "None" ]; then
+            echo "ERROR: could not resolve digest for ${{ env.ECR_REPO }}:$TAG"
+            exit 1
+          fi
+
+          IMAGE_PINNED="$REGISTRY/${{ env.ECR_REPO }}@$DIGEST"
+          echo "IMAGE_PINNED=$IMAGE_PINNED"
+
+          OUT="/tmp/taskdef.consumer.pinned.json"
+          jq --arg IMG "$IMAGE_PINNED" --arg NAME "${{ env.CONTAINER_NAME }}" \
+            '(.containerDefinitions[] | select(.name==$NAME) | .image) = $IMG' \
+            "${{ env.TASKDEF_TEMPLATE }}" > "$OUT"
+
+          echo "TASKDEF_RENDERED=$OUT" >> $GITHUB_ENV
+
+      - name: Register task definition
+        run: |
+          set -euo pipefail
+          TD_ARN="$(aws ecs register-task-definition \
+            --region "${{ env.AWS_REGION }}" \
+            --cli-input-json "file://${{ env.TASKDEF_RENDERED }}" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+          echo "TD_ARN=$TD_ARN" >> $GITHUB_ENV
+          echo "Registered: $TD_ARN"
+
+      - name: Update service and wait stable
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --region "${{ env.AWS_REGION }}" \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ env.ECS_SERVICE }}" \
+            --task-definition "${{ env.TD_ARN }}" \
+            --force-new-deployment
+
+          aws ecs wait services-stable \
+            --region "${{ env.AWS_REGION }}" \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}"
+
+          echo "✅ Service deployed and stable"
